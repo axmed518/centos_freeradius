@@ -1,0 +1,200 @@
+Step 1 - Install FreeRADIUS & Additional Modules on CentOS 7
+
+1. Download and install FreeRadius and it`s supplementary tools
+    sudo yum -y install freeradius freeradius-utils freeradius-mysql freeradius-perl
+
+2. After the installation’s finished, start and enable freeRADIUS so it’s running and so it also starts up on boot:
+    systemctl start radiusd.service
+    systemctl enable radiusd.service
+    Output for enable radiusd.service:  Created symlink from /etc/systemd/system/multi-user.target.wants/radiusd.service to /usr
+
+3. Check the status of radiusd.service:
+    systemctl status radiusd.service
+
+Output should be:
+● radiusd.service - FreeRADIUS high performance RADIUS server.
+   Loaded: loaded (/usr/lib/systemd/system/radiusd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sat 2019-05-04 15:28:42 UTC; 1min 8s ago
+ Main PID: 1687 (radiusd)
+   CGroup: /system.slice/radiusd.service
+           └─1687 /usr/sbin/radiusd -d /etc/raddb
+
+May 04 15:28:42 dracula_backup systemd[1]: Starting FreeRADIUS high performance RADIUS.....
+May 04 15:28:42 dracula_backup systemd[1]: Started FreeRADIUS high performance RADIUS .....
+Hint: Some lines were ellipsized, use -l to show in full
+
+4. Test RADIUS Server
+  We’ll test the RADIUS server in debug mode, which means we’ll have to run the service. The problem is that the server’s already running from earlier, and running in debug mode will fail to bind ports, as such we’ll have to kill the radius service first:
+    pkill radius
+
+  Now run the RADIUS server in debug mode to check if everything’s working:
+    radiusd -X
+
+  You should see a long output ending in:
+
+      Listening on auth address 127.0.0.1 port 18120 bound to server inner-tunnel
+      Listening on auth address * port 1812 bound to server default
+      Listening on acct address * port 1813 bound to server default
+      Listening on auth address :: port 1812 bound to server default
+      Listening on acct address :: port 1813 bound to server default
+      Listening on proxy address * port 57424
+      Listening on proxy address :: port 44958
+      Ready to process requests
+      The basic installation of FreeRADIUS seems to have been successful.
+
+Now we’ll proceed with configuring our RADIUS server to use MariaDB
+
+Step 2 – Install & Configure MariaDB 10 on CentOS 7
+
+1. install MariaDB:
+
+    yum install -y mariadb-server mariadb
+
+3. After the installation is finished, start MariaDB and enable it so it runs on boot:
+
+    systemctl start mariadb
+    systemctl enable mariadb
+
+4. Check to make sure it’s running and enabled:
+
+    systemctl status mariadb
+    systemctl is-enabled mariadb.service
+
+5. Securing MariaDB / MySQL
+MariaDB/MySQL comes with a script that helps you conveniently secure it and remove some insecure defaults. Some important things it allows you to do:
+set the root password
+remove anonymous users
+disallow remote login
+
+Run it with the following command and you’ll be guided through the process.
+
+    mysql_secure_installation
+
+We recommend you proceed as follows:
+Enter current password for root (enter for none): ENTER
+Set root password? [Y/n] y
+New password: Enter password
+Re-enter new password: Repeat password
+
+You’ll also be prompted to answer some questions to remove/keep some defaults:
+Remove anonymous users? [Y/n]: Y
+Disallow root login remotely? [Y/n]: Y
+Remove test database and access to it? [Y/n]: Y
+Reload privilege tables now? [Y/n]: Y    
+
+
+Step 3 – Install PHP 7 on CentOS 7
+
+CentOS 7 ships with PHP 5.4 at the time of writing, which has been officially EOL for some time.
+
+By using PHP 7 applications will load faster and use up less resources.
+
+PHP 7.x is available from various repositories. For our purposes, we’ll use the Remi Repository, which provides newer versions of applications.
+
+1. The Remi Repository depends on the EPEL repository. With the following line we’ll add both EPEL and Remi:
+    sudo yum install epel-release yum-utils
+    sudo yum install http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+
+We’ll install PHP 7.3, which is the latest stable release at the time of writing.
+
+2. Enable the PHP 7.3 Remi repository:
+    sudo yum-config-manager --enable remi-php73
+
+3. And run the following command to install PHP 7.3 along with some of the most common PHP modules:
+    sudo yum install php php-common php-opcache php-mcrypt php-cli php-gd php-curl php-mysqlnd
+
+4. You may be asked during the installation if you’re ok with importing a GPG Key. Answer y and hit enter.
+With the following command we can check the PHP version, to make sure the installation was successful:
+    php -v
+
+Step 4 – Configure FreeRADIUS to use MariaDB/MySQL
+
+To configure FreeRADIUS to use MariaDB / MySQL, we’ll have to create a database with tables to be used by the FreeRADIUS server for finding RADIUS users and to store accounting data.
+
+The FreeRADIUS MySQL package ships with the necessary query to create these tables, making our job a lot easier.
+
+To begin, we’ll log into MariaDB or MySQL and create and configure a database that we’ll call radius:
+
+    mysql -u root -p
+Enter your password at the prompt.
+
+Once you’re logged in, run the following commands to create and configure the database:
+
+MariaDB [(none)]> CREATE DATABASE radius;
+MariaDB [(none)]> GRANT ALL ON radius.* TO radius@localhost IDENTIFIED BY "radiuspassword";
+MariaDB [(none)]> FLUSH PRIVILEGES;
+MariaDB [(none)]> quit;
+Next import the RADIUS database scheme to populate the radius database:
+
+$ mysql -uroot -pYOUR_PASSWORD radius < /etc/raddb/mods-config/sql/main/mysql/schema.sql
+And create a soft link for SQL under /etc/raddb/mods-enabled:
+
+$ ln -s /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/
+Now we’ll configure the freeRADIUS server to use the database server. Do this by opening the configuration file /raddb/mods-available/sql using your favorite text editor:
+
+$ nano /etc/raddb/mods-available/sql
+The sql section should look something like the following, although yours will be a longer document due to explanations and other lines that are commented out.
+
+sql {
+
+driver = "rlm_sql_mysql"
+dialect = "mysql"
+
+# Connection info:
+
+server = "localhost"
+port = 3306
+login = "radius"
+password = "radiuspassword"
+
+# Database table configuration for everything except Oracle
+
+radius_db = "radius"
+}
+
+# Set to ‘yes’ to read radius clients from the database (‘nas’ table)
+# Clients will ONLY be read on server startup.
+read_clients = yes
+
+# Table to keep radius client info
+client_table = “nas”
+The steps to follow here are:
+
+Change driver = "rlm_sql_null" to driver = "rlm_sql_mysql"
+Change dialect = "sqlite" to dialect = "mysql"
+Uncomment server, port, login and password by removing # from the beginning of the line, as well as changing password = "radpass" to password = "radiuspassword".To exemplify, here is how the lines look initially:
+#	server = "localhost"
+#	port = 3306
+#   login = "radius"
+#   password = "radpass"
+And here is how they look after:
+
+ 	server = "localhost"
+ 	port = 3306
+    login = "radius"
+    password = "radiuspassword"
+Uncomment the read_clients = yes line, by removing the # at the beginning of the line.
+The other lines should be already set up according to our needs, so you can save and close the file when you’re done. ( You can check to make sure that everything’s in order, however )
+Finally, change the group rights of /etc/raddb/mods-enabled/sql to radiusd:
+
+$ chgrp -h radiusd /etc/raddb/mods-enabled/sql
+Now let’s run FreeRADIUS in debug mode again, since we’ve made some changes.
+
+If the RADIUS server is running, first kill the deamon:
+
+pkill radiusd
+And run the server in debug mode:
+
+radiusd -X
+Output:
+
+Listening on auth address 127.0.0.1 port 18120 bound to server inner-tunnel
+Listening on auth address * port 1812 bound to server default
+Listening on acct address * port 1813 bound to server default
+Listening on auth address :: port 1812 bound to server default
+Listening on acct address :: port 1813 bound to server default
+Listening on proxy address * port 59387
+Listening on proxy address :: port 51874
+Ready to process requests
+
+Step 5 – GUI WebPanel
