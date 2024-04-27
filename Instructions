@@ -1,15 +1,15 @@
 Step 1 - Install FreeRADIUS & Additional Modules on CentOS 7
 
-1. Download and install FreeRadius and it`s supplementary tools
-    sudo yum -y install freeradius freeradius-utils freeradius-mysql freeradius-perl
+a. Download and install FreeRadius and it`s supplementary tools
+        sudo yum -y install freeradius freeradius-utils freeradius-mysql freeradius-perl
 
-2. After the installation’s finished, start and enable freeRADIUS so it’s running and so it also starts up on boot:
-    systemctl start radiusd.service
-    systemctl enable radiusd.service
+b. After the installation’s finished, start and enable freeRADIUS so it’s running and so it also starts up on boot:
+        systemctl start radiusd.service
+        systemctl enable radiusd.service
     Output for enable radiusd.service:  Created symlink from /etc/systemd/system/multi-user.target.wants/radiusd.service to /usr
 
-3. Check the status of radiusd.service:
-    systemctl status radiusd.service
+c. Check the status of radiusd.service:
+        systemctl status radiusd.service
 
 Output should be:
 ● radiusd.service - FreeRADIUS high performance RADIUS server.
@@ -23,9 +23,9 @@ May 04 15:28:42 dracula_backup systemd[1]: Starting FreeRADIUS high performance 
 May 04 15:28:42 dracula_backup systemd[1]: Started FreeRADIUS high performance RADIUS .....
 Hint: Some lines were ellipsized, use -l to show in full
 
-4. Test RADIUS Server
+d. Test RADIUS Server
   We’ll test the RADIUS server in debug mode, which means we’ll have to run the service. The problem is that the server’s already running from earlier, and running in debug mode will fail to bind ports, as such we’ll have to kill the radius service first:
-    pkill radius
+        pkill radius
 
   Now run the RADIUS server in debug mode to check if everything’s working:
     radiusd -X
@@ -46,21 +46,21 @@ Now we’ll proceed with configuring our RADIUS server to use MariaDB
 
 Step 2 – Install & Configure MariaDB 10 on CentOS 7
 
-1. install MariaDB:
+a. install MariaDB:
 
-    yum install -y mariadb-server mariadb
+        yum install -y mariadb-server mariadb
 
-3. After the installation is finished, start MariaDB and enable it so it runs on boot:
+b. After the installation is finished, start MariaDB and enable it so it runs on boot:
 
-    systemctl start mariadb
-    systemctl enable mariadb
+        systemctl start mariadb
+        systemctl enable mariadb
 
-4. Check to make sure it’s running and enabled:
+c. Check to make sure it’s running and enabled:
 
-    systemctl status mariadb
-    systemctl is-enabled mariadb.service
+        systemctl status mariadb
+        systemctl is-enabled mariadb.service
 
-5. Securing MariaDB / MySQL
+d. Securing MariaDB / MySQL
 MariaDB/MySQL comes with a script that helps you conveniently secure it and remove some insecure defaults. Some important things it allows you to do:
 set the root password
 remove anonymous users
@@ -68,7 +68,7 @@ disallow remote login
 
 Run it with the following command and you’ll be guided through the process.
 
-    mysql_secure_installation
+        mysql_secure_installation
 
 We recommend you proceed as follows:
 Enter current password for root (enter for none): ENTER
@@ -91,21 +91,21 @@ By using PHP 7 applications will load faster and use up less resources.
 
 PHP 7.x is available from various repositories. For our purposes, we’ll use the Remi Repository, which provides newer versions of applications.
 
-1. The Remi Repository depends on the EPEL repository. With the following line we’ll add both EPEL and Remi:
+a. The Remi Repository depends on the EPEL repository. With the following line we’ll add both EPEL and Remi:
     sudo yum install epel-release yum-utils
     sudo yum install http://rpms.remirepo.net/enterprise/remi-release-7.rpm
 
 We’ll install PHP 7.3, which is the latest stable release at the time of writing.
 
-2. Enable the PHP 7.3 Remi repository:
-    sudo yum-config-manager --enable remi-php73
+b. Enable the PHP 7.3 Remi repository:
+        sudo yum-config-manager --enable remi-php73
 
-3. And run the following command to install PHP 7.3 along with some of the most common PHP modules:
-    sudo yum install php php-common php-opcache php-mcrypt php-cli php-gd php-curl php-mysqlnd
+c. And run the following command to install PHP 7.3 along with some of the most common PHP modules:
+        sudo yum install php php-common php-opcache php-mcrypt php-cli php-gd php-curl php-mysqlnd
 
-4. You may be asked during the installation if you’re ok with importing a GPG Key. Answer y and hit enter.
+d. You may be asked during the installation if you’re ok with importing a GPG Key. Answer y and hit enter.
 With the following command we can check the PHP version, to make sure the installation was successful:
-    php -v
+        php -v
 
 Step 4 – Configure FreeRADIUS to use MariaDB/MySQL
 
@@ -113,26 +113,25 @@ To configure FreeRADIUS to use MariaDB / MySQL, we’ll have to create a databas
 
 The FreeRADIUS MySQL package ships with the necessary query to create these tables, making our job a lot easier.
 
-To begin, we’ll log into MariaDB or MySQL and create and configure a database that we’ll call radius:
-
-    mysql -u root -p
+a. To begin, we’ll log into MariaDB or MySQL and create and configure a database that we’ll call radius:
+        mysql -u root -p
 Enter your password at the prompt.
 
 Once you’re logged in, run the following commands to create and configure the database:
+        MariaDB [(none)]> CREATE DATABASE radius;
+        MariaDB [(none)]> GRANT ALL ON radius.* TO radius@localhost IDENTIFIED BY "radiuspassword";
+        MariaDB [(none)]> FLUSH PRIVILEGES;
+        MariaDB [(none)]> quit;
 
-MariaDB [(none)]> CREATE DATABASE radius;
-MariaDB [(none)]> GRANT ALL ON radius.* TO radius@localhost IDENTIFIED BY "radiuspassword";
-MariaDB [(none)]> FLUSH PRIVILEGES;
-MariaDB [(none)]> quit;
-Next import the RADIUS database scheme to populate the radius database:
+b. Next import the RADIUS database scheme to populate the radius database:
+        mysql -uroot -pYOUR_PASSWORD radius < /etc/raddb/mods-config/sql/main/mysql/schema.sql
 
-$ mysql -uroot -pYOUR_PASSWORD radius < /etc/raddb/mods-config/sql/main/mysql/schema.sql
-And create a soft link for SQL under /etc/raddb/mods-enabled:
+c. And create a soft link for SQL under /etc/raddb/mods-enabled:
+        ln -s /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/
 
-$ ln -s /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/
-Now we’ll configure the freeRADIUS server to use the database server. Do this by opening the configuration file /raddb/mods-available/sql using your favorite text editor:
+e. Now we’ll configure the freeRADIUS server to use the database server. Do this by opening the configuration file /raddb/mods-available/sql using your favorite text editor:
+        nano /etc/raddb/mods-available/sql
 
-$ nano /etc/raddb/mods-available/sql
 The sql section should look something like the following, although yours will be a longer document due to explanations and other lines that are commented out.
 
 sql {
@@ -175,17 +174,17 @@ And here is how they look after:
     password = "radiuspassword"
 Uncomment the read_clients = yes line, by removing the # at the beginning of the line.
 The other lines should be already set up according to our needs, so you can save and close the file when you’re done. ( You can check to make sure that everything’s in order, however )
-Finally, change the group rights of /etc/raddb/mods-enabled/sql to radiusd:
 
-$ chgrp -h radiusd /etc/raddb/mods-enabled/sql
-Now let’s run FreeRADIUS in debug mode again, since we’ve made some changes.
+e. Finally, change the group rights of /etc/raddb/mods-enabled/sql to radiusd:
+        chgrp -h radiusd /etc/raddb/mods-enabled/sql
 
+f. Now let’s run FreeRADIUS in debug mode again, since we’ve made some changes.
 If the RADIUS server is running, first kill the deamon:
+        pkill radiusd
 
-pkill radiusd
 And run the server in debug mode:
+        radiusd -X
 
-radiusd -X
 Output:
 
 Listening on auth address 127.0.0.1 port 18120 bound to server inner-tunnel
@@ -198,3 +197,208 @@ Listening on proxy address :: port 51874
 Ready to process requests
 
 Step 5 – GUI WebPanel
+
+a. Install httpd server
+        yum groupinstall "Development Tools" -y
+        yum -y install httpd httpd-devel
+
+b. Start and enable the httpd server:
+        systemctl enable httpd
+        systemctl start httpd
+
+Check the status of the httpd server to make sure it’s running:
+        systemctl status httpd
+
+Output:
+
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sun 2019-05-05 12:48:15 UTC; 4s ago
+     Docs: man:httpd(8)
+           man:apachectl(8)
+ Main PID: 29382 (httpd)
+   Status: "Processing requests..."
+   CGroup: /system.slice/httpd.service
+           ├─29382 /usr/sbin/httpd -DFOREGROUND
+           ├─29383 /usr/sbin/httpd -DFOREGROUND
+           ├─29384 /usr/sbin/httpd -DFOREGROUND
+           ├─29385 /usr/sbin/httpd -DFOREGROUND
+           ├─29386 /usr/sbin/httpd -DFOREGROUND
+           └─29387 /usr/sbin/httpd -DFOREGROUND
+
+May 05 12:48:14 dracula_backup systemd[1]: Starting The Apache HTTP Server...
+May 05 12:48:14 dracula_backup httpd[29382]: AH00558: httpd: Could not reliably determ...ge
+May 05 12:48:15 dracula_backup systemd[1]: Started The Apache HTTP Server.
+Hint: Some lines were ellipsized, use -l to show in full.
+
+c. Download daloRADIUS
+        wget http://liquidtelecom.dl.sourceforge.net/project/daloradius/daloradius/daloradius0.9-9/daloradius-0.9-9.tar.gz
+        tar zxvf daloradius-0.9-9.tar.gz 
+        mv daloradius-0.9-9 daloradius
+
+cd into the daloradius directory:
+        cd daloradius
+
+d. Add the daloRADIUS SQL Schema
+
+Import daloRADIUS MySQL tables
+        mysql -u root -p radius < contrib/db/fr2-mysql-daloradius-and-freeradius.sql 
+        mysql -u root -p radius < contrib/db/mysql-daloradius.sql
+
+e. Config the daloRADIUS DB options
+
+Configure daloRADIUS database connection details:
+        cd ..
+        mv daloradius /var/www/html/
+
+Change permissions for the daloRADIUS http folder and set the appropriate permissions for the config file:
+        chown -R apache:apache /var/www/html/daloradius/
+        chmod 664 /var/www/html/daloradius/library/daloradius.conf.php
+
+f. Now we’ll need to modify daloradius.conf.php to add in our SQL information.
+
+Using your favorite text editor open the file:
+        vim /var/www/html/daloradius/library/daloradius.conf.php
+
+For the purposes of this tutorial, the relevant variables are:
+
+CONFIG_DB_ENGINE
+CONFIG_DB_USER
+CONFIG_DB_PASS
+CONFIG_DB_NAME
+
+The above mentioned variables should look something like this:
+
+$configValues['CONFIG_DB_ENGINE'] = 'mysqli';
+$configValues['CONFIG_DB_USER'] = 'radius';
+$configValues['CONFIG_DB_PASS'] = 'radiuspassword';
+$configValues['CONFIG_DB_NAME'] = 'radius';
+Save and close the file when you’re done.
+
+g. Now let’s make sure everything works by restarting FreeRADIUS, MariaDB or MySQL and httpd:
+        systemctl restart radiusd.service 
+        systemctl restart mariadb.service 
+        systemctl restart httpd
+
+Now run:
+
+        yum install php-pear
+        pear install DB
+
+h. Disable SELINUX
+
+To view the current SELinux status and the SELinux policy that is being used on your system, use the sestatus command:
+        sestatus
+
+SELinux status:                 enabled
+SELinuxfs mount:                /sys/fs/selinux
+SELinux root directory:         /etc/selinux
+Loaded policy name:             targeted
+Current mode:                   enforcing
+Mode from config file:          enforcing
+Policy MLS status:              enabled
+Policy deny_unknown status:     allowed
+Max kernel policy version:      31Copy
+
+You can see from the output above that SELinux is enabled and set to enforcing mode.
+
+Disable SELinux
+You can temporarily change the SELinux mode from targeted to permissive with the following command:
+
+        sudo setenforce 0
+
+However, this change is valid for the current runtime session only.
+
+To permanently disable SELinux on your CentOS 7 system, follow the steps below:
+
+Open the /etc/selinux/config file and set the SELINUX mod to disabled:
+
+/etc/selinux/config
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#       enforcing - SELinux security policy is enforced.
+#       permissive - SELinux prints warnings instead of enforcing.
+#       disabled - No SELinux policy is loaded.
+SELINUX=disabled
+# SELINUXTYPE= can take one of these two values:
+#       targeted - Targeted processes are protected,
+#       mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+
+Save the file and reboot your CentOS system with:
+
+        sudo shutdown -r now
+
+Step 6 — Logging into daloRADIUS
+And that’s it.
+
+You’ve successfully installed daloRADIUS on your CentOS 7 machine and you should be able to access it by visiting:
+
+http://your-server-ip-address/daloradius/login.php
+
+The default credentials are the following:
+
+Username: administrator
+Password: radius
+
+Do make sure to change your password immediately.
+
+
+Step 7 – Create a NAS Client & User
+For other computers to connect to the RADIUS server, they need to be added to the NAS client table in the RADIUS database.
+First we need to add the NAS. Do this in daloRADIUS by navigating to Management > Nas > New Nas
+After adding the NAS, you can add new Users in daloRADIUS by going to Management > Users > New Users.
+There are more attributes that you can set to users and user groups, however that is beyond the scope of this tutorial.
+Now that we’ve added a new NAS and new User, we should test them. Every time a new NAS is added, you’ll need to reload FreeRADIUS so it fetches the refreshed table. To test that everything is OK, stop the freeradius server and start it in debug mode and move on to the next step.
+First we’ll kill the daemon:
+        pkill radiusd
+
+And start it in debug mode:
+        radiusd -X
+
+Step 8 – Testing with NTRadPing
+A great tool we can use to test our radius servers is NTRadPing. You can download it here: ntradping.
+Unzip and run the executable, and in fill out the fields with the credentials you created earlier when adding the new NAS and new User. Here’s how we fill it, according to the credentials we created in this tutorial. Also keep in mind that RADIUS users port 1812, so that’s the port you want to fill in.
+
+RADIUS Server/port: your_server_ip / 1812
+RADIUS Secret Key: strongsecret!
+Password: Strongpassword
+
+And check the CHAP checkbox.
+Now click Send and you should receive a reply that looks something like this:
+
+Sending authentication request to server xx.xx.xx.xx.:1812
+transmiting Packet, code=1 id=2 length=50
+recieved response from the server in 145 milliseconds
+replay packet code=3 id=2 length=20
+response: Access-Accept
+-------------------attribute dump------------------
+The output for FreeRADIUS debug mode when a user is successfully authenticated should look something like this:
+
+(0) sql: SQL-User-Name set to 'test_user1'
+(0) sql: EXPAND INSERT INTO radpostauth (username, pass, reply, authdate) VALUES ( '%{SQL-User-Name}', '%{%{User-Password}:-%{Chap-Password}}', '%{reply:Packet-Type}', '%S')
+(0) sql:    --> INSERT INTO radpostauth (username, pass, reply, authdate) VALUES ( 'test_user1', '0x61a8a6390c46259cf64b56697fd5d78ad5', 'Access-Accept', '2019-05-06 19:00:56.660290')
+(0) sql: Executing query: INSERT INTO radpostauth (username, pass, reply, authdate) VALUES ( 'test_user1', '0x61a8a6390c46259cf64b56697fd5d78ad5', 'Access-Accept', '2019-05-06 19:00:56.660290')
+(0) sql: SQL query returned: success
+(0) sql: 1 record(s) updated
+rlm_sql (sql): Released connection (6)
+(0)     [sql] = ok
+(0)     [exec] = noop
+(0)     policy remove_reply_message_if_eap {
+(0)       if (&reply:EAP-Message && &reply:Reply-Message) {
+(0)       if (&reply:EAP-Message && &reply:Reply-Message)  -> FALSE
+(0)       else {
+(0)         [noop] = noop
+(0)       } # else = noop
+(0)     } # policy remove_reply_message_if_eap = noop
+(0)   } # post-auth = ok
+(0) Sent Access-Accept Id 3 from 108.61.203.68:1812 to 213.136.66.127:56372 length 0
+(0) Finished request
+Waking up in 4.9 seconds.
+(0) Cleaning up request packet ID 3 with timestamp +6110
+Ready to process requests
+
+
+Taken from:
+https://draculaservers.com/tutorials/freeradius-centos-7-mysql/
+https://draculaservers.com/tutorials/freeradius-panel-daloradius-centos-7/
